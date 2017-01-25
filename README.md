@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 Pets App
 ===================================
 
@@ -45,3 +46,6 @@ distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
 WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
 License for the specific language governing permissions and limitations under
 the License.
+=======
+# InventoryApp
+>>>>>>> 3b3c15728157f75da44ef6c19ee6128bf76ceaf6
