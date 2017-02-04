@@ -45,8 +45,6 @@ public class CatalogActivity extends AppCompatActivity implements
     /** Identifier for the pet data loader */
     private static final int PRODUCT_LOADER = 0;
 
-    private static final int PICK_IMAGE_REQUEST = 0;
-    private static final int SEND_MAIL_REQUEST = 1;
     /** Adapter for the ListView */
     ProductCursorAdapter mCursorAdapter;
 
@@ -103,37 +101,7 @@ public class CatalogActivity extends AppCompatActivity implements
         getLoaderManager().initLoader(PRODUCT_LOADER, null, this);
     }
 
-    /**
-     * Helper method to insert hardcoded pet data into the database. For debugging purposes only.
-     */
-    private void insertProduct() {
-        // Create a ContentValues object where column names are the keys,
-        // and Toto's pet attributes are the values.
-        ContentValues values = new ContentValues();
-        values.put(ProductContract.ProductEntry.COLUMN_PRODUCT_NAME, "Redmi");
-        values.put(ProductContract.ProductEntry.COLUMN_PRODUCT_PRICE, 67);
-        values.put(ProductContract.ProductEntry.COLUMN_PRODUCT_QUANTITY, 7);
 
-        // Insert a new row for Toto into the provider using the ContentResolver.
-        // Use the {@link ProductEntry#CONTENT_URI} to indicate that we want to insert
-        // into the pets database table.
-        // Receive the new content URI that will allow us to access Toto's data in the future.
-        Uri newUri = getContentResolver().insert(ProductContract.ProductEntry.CONTENT_URI, values);
-    }
-
-    public void openImageSelector() {
-        Intent intent;
-
-        if (Build.VERSION.SDK_INT < 19) {
-            intent = new Intent(Intent.ACTION_GET_CONTENT);
-        } else {
-            intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-            intent.addCategory(Intent.CATEGORY_OPENABLE);
-        }
-
-        intent.setType("image/*");
-        startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE_REQUEST);
-    }
 
 
     /**
@@ -156,10 +124,7 @@ public class CatalogActivity extends AppCompatActivity implements
     public boolean onOptionsItemSelected(MenuItem item) {
         // User clicked on a menu option in the app bar overflow menu
         switch (item.getItemId()) {
-            // Respond to a click on the "Insert dummy data" menu option
-            case R.id.action_insert_dummy_data:
-                insertProduct();
-                return true;
+
             // Respond to a click on the "Delete all entries" menu option
             case R.id.action_delete_all_entries:
                 deleteAllProducts();
@@ -175,7 +140,8 @@ public class CatalogActivity extends AppCompatActivity implements
                 ProductContract.ProductEntry._ID,
                 ProductContract.ProductEntry.COLUMN_PRODUCT_NAME,
                 ProductContract.ProductEntry.COLUMN_PRODUCT_PRICE,
-                ProductContract.ProductEntry.COLUMN_PRODUCT_QUANTITY};
+                ProductContract.ProductEntry.COLUMN_PRODUCT_QUANTITY,
+                ProductContract.ProductEntry.COLUMN_PRODUCT_IMAGE_URI};
 
         // This loader will execute the ContentProvider's query method on a background thread
         return new CursorLoader(this,   // Parent activity context

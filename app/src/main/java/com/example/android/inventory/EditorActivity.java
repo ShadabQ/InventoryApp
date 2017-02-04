@@ -17,31 +17,41 @@ package com.example.android.inventory;
 
 import android.app.AlertDialog;
 import android.app.LoaderManager;
+import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.CursorLoader;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.Loader;
 import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.support.v4.app.NavUtils;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
+import android.view.ViewTreeObserver;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.Spinner;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import com.example.android.inventory.data.ProductContract;
 import com.example.android.inventory.data.ProductContract.ProductEntry;
+
+import java.io.IOException;
+
+import static android.app.Activity.RESULT_OK;
+import static com.example.android.inventory.R.drawable.ic_add_pet;
 
 /**
  * Allows user to create a new pet or edit an existing one.
@@ -49,39 +59,42 @@ import com.example.android.inventory.data.ProductContract.ProductEntry;
 public class EditorActivity extends AppCompatActivity implements
         LoaderManager.LoaderCallbacks<Cursor> {
 
+    private static final String LOG_TAG = EditorActivity.class.getSimpleName();
 
     private static final int PICK_IMAGE_REQUEST = 0;
-    private static final int SEND_MAIL_REQUEST = 1;
+
     /** Identifier for the pet data loader */
-    private static final int EXISTING_PET_LOADER = 0;
+    private static final int EXISTING_PRODUCT_LOADER = 0;
 
-    /** Content URI for the existing pet (null if it's a new pet) */
-    private Uri mCurrentPetUri;
+    /** Content URI for the existing product (null if it's a new product) */
+    private Uri mCurrentUri;
 
-    /** EditText field to enter the pet's name */
+    private Uri mImageUri;
+    /** EditText field to enter the product's name */
     private EditText mNameEditText;
 
-    /** EditText field to enter the pet's breed */
-    private EditText mBreedEditText;
+    /** EditText field to enter the product's price */
+    private EditText mPriceEditText;
 
-    /** EditText field to enter the pet's weight */
-    private EditText mWeightEditText;
-
-    /** EditText field to enter the pet's gender */
-    private Spinner mGenderSpinner;
+    /** EditText field to enter the product's qty */
+    private EditText mQuantityEditText;
 
 
-    /** Boolean flag that keeps track of whether the pet has been edited (true) or not (false) */
-    private boolean mPetHasChanged = false;
+    private ImageView mImageView;
+
+
+
+    /** Boolean flag that keeps track of whether the product has been edited (true) or not (false) */
+    private boolean mProductHasChanged = false;
 
     /**
      * OnTouchListener that listens for any user touches on a View, implying that they are modifying
-     * the view, and we change the mPetHasChanged boolean to true.
+     * the view, and we change the mProductHasChanged boolean to true.
      */
     private View.OnTouchListener mTouchListener = new View.OnTouchListener() {
         @Override
         public boolean onTouch(View view, MotionEvent motionEvent) {
-            mPetHasChanged = true;
+            mProductHasChanged = true;
             return false;
         }
     };
@@ -91,35 +104,11 @@ public class EditorActivity extends AppCompatActivity implements
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_editor);
 
-        // Examine the intent that was used to launch this activity,
-        // in order to figure out if we're creating a new pet or editing an existing one.
-        Intent intent = getIntent();
-        mCurrentPetUri = intent.getData();
-
-        // If the intent DOES NOT contain a pet content URI, then we know that we are
-        // creating a new pet.
-        if (mCurrentPetUri == null) {
-            // This is a new pet, so change the app bar to say "Add a Pet"
-            setTitle(getString(R.string.editor_activity_title_new_pet));
-
-            // Invalidate the options menu, so the "Delete" menu option can be hidden.
-            // (It doesn't make sense to delete a pet that hasn't been created yet.)
-            invalidateOptionsMenu();
-        } else {
-            // Otherwise this is an existing pet, so change app bar to say "Edit Pet"
-            setTitle(getString(R.string.editor_activity_title_edit_pet));
-
-            // Initialize a loader to read the pet data from the database
-            // and display the current values in the editor
-            getLoaderManager().initLoader(EXISTING_PET_LOADER, null, this);
-        }
-
         // Find all relevant views that we will need to read user input from
         mNameEditText = (EditText) findViewById(R.id.edit_product_name);
-        mBreedEditText = (EditText) findViewById(R.id.edit_product_price);
-        mWeightEditText = (EditText) findViewById(R.id.edit_product_qty);
-
-
+        mPriceEditText = (EditText) findViewById(R.id.edit_product_price);
+        mQuantityEditText = (EditText) findViewById(R.id.edit_product_qty);
+        mImageView  =   (ImageView) findViewById(R.id.imageEditor);
         Button uploadButton=(Button) findViewById(R.id.upload_image);
         uploadButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -127,64 +116,126 @@ public class EditorActivity extends AppCompatActivity implements
                 openImageSelector();
             }
         });
+        // Examine the intent that was used to launch this activity,
+        // in order to figure out if we're creating a new product or editing an existing one.
+        Intent intent = getIntent();
+        mCurrentUri = intent.getData();
 
 
+
+        // If the intent DOES NOT contain a product content URI, then we know that we are
+        // creating a new product.
+        if (mCurrentUri == null) {
+            // This is a new pet, so change the app bar to say "Add a Product"
+            setTitle(getString(R.string.editor_activity_title_new_pet));
+
+
+
+            // Invalidate the options menu, so the "Delete" menu option can be hidden.
+            // (It doesn't make sense to delete a product that hasn't been created yet.)
+            invalidateOptionsMenu();
+        } else {
+            // Otherwise this is an existing pet, so change app bar to say "Edit Product"
+            setTitle(getString(R.string.editor_activity_title_edit_pet));
+
+
+            // Initialize a loader to read the product data from the database
+            // and display the current values in the editor
+            getLoaderManager().initLoader(EXISTING_PRODUCT_LOADER, null, this);
+        }
+
+
+        Button orderButton = (Button)findViewById(R.id.place_order);
+        orderButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String orderMsg = "my message";
+                Intent intentOrderRequest = new Intent(Intent.ACTION_SENDTO);
+                intentOrderRequest.setData(Uri.parse("mailto:"));
+                intentOrderRequest.putExtra(Intent.EXTRA_EMAIL, "shadab.b08@gmail.com");
+                intentOrderRequest.putExtra(Intent.EXTRA_SUBJECT,
+                        "Re-order request for ");
+
+                intentOrderRequest.putExtra(Intent.EXTRA_TEXT,
+                        orderMsg);
+
+                if (intentOrderRequest.resolveActivity(getPackageManager()) != null) {
+                    startActivity(intentOrderRequest);
+                }
+
+
+            }
+        });
 
         // Setup OnTouchListeners on all the input fields, so we can determine if the user
         // has touched or modified them. This will let us know if there are unsaved changes
         // or not, if the user tries to leave the editor without saving.
         mNameEditText.setOnTouchListener(mTouchListener);
-        mBreedEditText.setOnTouchListener(mTouchListener);
-        mWeightEditText.setOnTouchListener(mTouchListener);
-
-
-
+        mPriceEditText.setOnTouchListener(mTouchListener);
+        mQuantityEditText.setOnTouchListener(mTouchListener);
+        mImageView.setOnTouchListener(mTouchListener);
     }
 
 
 
     /**
-     * Get user input from editor and save pet into database.
+     * Get user input from editor and save product into database.
      */
-    private void savePet() {
+    private void saveProduct() {
         // Read from input fields
         // Use trim to eliminate leading or trailing white space
         String nameString = mNameEditText.getText().toString().trim();
-        String breedString = mBreedEditText.getText().toString().trim();
-        String weightString = mWeightEditText.getText().toString().trim();
+        String priceString = mPriceEditText.getText().toString().trim();
+        String qtyString = mQuantityEditText.getText().toString().trim();
+        String imageString = "";
 
-        // Check if this is supposed to be a new pet
+        if (mImageUri != null){
+            imageString = mImageUri.toString();
+        }else {
+
+            int resId=R.drawable.ic_add_pet;
+            Uri resUri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE +
+                    "://" + getResources().getResourcePackageName(resId)
+                    + '/' + getResources().getResourceTypeName(resId)
+                    + '/' + getResources().getResourceEntryName(resId));
+
+            imageString = resUri.toString();
+        }
+        // Check if this is supposed to be a new product
         // and check if all the fields in the editor are blank
-        if (mCurrentPetUri == null &&
-                TextUtils.isEmpty(nameString) && TextUtils.isEmpty(breedString) &&
-                TextUtils.isEmpty(weightString) ) {
-            // Since no fields were modified, we can return early without creating a new pet.
+        if (mCurrentUri == null && mImageUri==null &&
+                TextUtils.isEmpty(nameString) && TextUtils.isEmpty(priceString) &&
+                TextUtils.isEmpty(qtyString)) {
+            // Since no fields were modified, we can return early without creating a new product.
             // No need to create ContentValues and no need to do any ContentProvider operations.
             return;
         }
 
+        int qty = 0;
+        if (!TextUtils.isEmpty(qtyString)) {
+            qty = Integer.parseInt(qtyString);
+        }
 
-
+        int price = 0;
+        if (!TextUtils.isEmpty(priceString)) {
+            price = Integer.parseInt(priceString);
+        }
 
 
         // Create a ContentValues object where column names are the keys,
-        // and pet attributes from the editor are the values.
+        // and product attributes from the editor are the values.
         ContentValues values = new ContentValues();
         values.put(ProductEntry.COLUMN_PRODUCT_NAME, nameString);
-        values.put(ProductEntry.COLUMN_PRODUCT_PRICE, breedString);
-        values.put(ProductEntry.COLUMN_PRODUCT_QUANTITY, weightString);
-
+        values.put(ProductEntry.COLUMN_PRODUCT_PRICE, price);
+        values.put(ProductEntry.COLUMN_PRODUCT_QUANTITY, qty);
+        values.put(ProductEntry.COLUMN_PRODUCT_IMAGE_URI, imageString);
         // If the weight is not provided by the user, don't try to parse the string into an
         // integer value. Use 0 by default.
-        int weight = 0;
-        if (!TextUtils.isEmpty(weightString)) {
-            weight = Integer.parseInt(weightString);
-        }
 
-        // Determine if this is a new or existing pet by checking if mCurrentPetUri is null or not
-        if (mCurrentPetUri == null) {
-            // This is a NEW pet, so insert a new pet into the provider,
-            // returning the content URI for the new pet.
+        // Determine if this is a new or existing product by checking if mCurrentUri is null or not
+        if (mCurrentUri == null) {
+            // This is a NEW product, so insert a new product into the provider,
+            // returning the content URI for the new product.
             Uri newUri = getContentResolver().insert(ProductEntry.CONTENT_URI, values);
 
             // Show a toast message depending on whether or not the insertion was successful.
@@ -198,11 +249,11 @@ public class EditorActivity extends AppCompatActivity implements
                         Toast.LENGTH_SHORT).show();
             }
         } else {
-            // Otherwise this is an EXISTING pet, so update the pet with content URI: mCurrentPetUri
+            // Otherwise this is an EXISTING product, so update the pet with content URI: mCurrentUri
             // and pass in the new ContentValues. Pass in null for the selection and selection args
-            // because mCurrentPetUri will already identify the correct row in the database that
+            // because mCurrentUri will already identify the correct row in the database that
             // we want to modify.
-            int rowsAffected = getContentResolver().update(mCurrentPetUri, values, null, null);
+            int rowsAffected = getContentResolver().update(mCurrentUri, values, null, null);
 
             // Show a toast message depending on whether or not the update was successful.
             if (rowsAffected == 0) {
@@ -248,8 +299,8 @@ public class EditorActivity extends AppCompatActivity implements
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
         super.onPrepareOptionsMenu(menu);
-        // If this is a new pet, hide the "Delete" menu item.
-        if (mCurrentPetUri == null) {
+        // If this is a new product, hide the "Delete" menu item.
+        if (mCurrentUri == null) {
             MenuItem menuItem = menu.findItem(R.id.action_delete);
             menuItem.setVisible(false);
         }
@@ -262,8 +313,8 @@ public class EditorActivity extends AppCompatActivity implements
         switch (item.getItemId()) {
             // Respond to a click on the "Save" menu option
             case R.id.action_save:
-                // Save pet to database
-                savePet();
+                // Save product to database
+                saveProduct();
                 // Exit activity
                 finish();
                 return true;
@@ -276,7 +327,7 @@ public class EditorActivity extends AppCompatActivity implements
             case android.R.id.home:
                 // If the pet hasn't changed, continue with navigating up to parent activity
                 // which is the {@link CatalogActivity}.
-                if (!mPetHasChanged) {
+                if (!mProductHasChanged) {
                     NavUtils.navigateUpFromSameTask(EditorActivity.this);
                     return true;
                 }
@@ -306,7 +357,7 @@ public class EditorActivity extends AppCompatActivity implements
     @Override
     public void onBackPressed() {
         // If the pet hasn't changed, continue with handling back button press
-        if (!mPetHasChanged) {
+        if (!mProductHasChanged) {
             super.onBackPressed();
             return;
         }
@@ -329,16 +380,17 @@ public class EditorActivity extends AppCompatActivity implements
     @Override
     public Loader<Cursor> onCreateLoader(int i, Bundle bundle) {
         // Since the editor shows all pet attributes, define a projection that contains
-        // all columns from the pet table
+        // all columns from the product table
         String[] projection = {
                 ProductEntry._ID,
                 ProductEntry.COLUMN_PRODUCT_NAME,
                 ProductEntry.COLUMN_PRODUCT_PRICE,
-                ProductEntry.COLUMN_PRODUCT_QUANTITY};
+                ProductEntry.COLUMN_PRODUCT_QUANTITY,
+                ProductEntry.COLUMN_PRODUCT_IMAGE_URI};
 
         // This loader will execute the ContentProvider's query method on a background thread
         return new CursorLoader(this,   // Parent activity context
-                mCurrentPetUri,         // Query the content URI for the current pet
+                mCurrentUri,         // Query the content URI for the current pet
                 projection,             // Columns to include in the resulting Cursor
                 null,                   // No selection clause
                 null,                   // No selection arguments
@@ -357,19 +409,22 @@ public class EditorActivity extends AppCompatActivity implements
         if (cursor.moveToFirst()) {
             // Find the columns of pet attributes that we're interested in
             int nameColumnIndex = cursor.getColumnIndex(ProductContract.ProductEntry.COLUMN_PRODUCT_NAME);
-            int breedColumnIndex = cursor.getColumnIndex(ProductEntry.COLUMN_PRODUCT_PRICE);
-            int genderColumnIndex = cursor.getColumnIndex(ProductEntry.COLUMN_PRODUCT_QUANTITY);
-
+            int priceColumnIndex = cursor.getColumnIndex(ProductEntry.COLUMN_PRODUCT_PRICE);
+            int qtyColumnIndex = cursor.getColumnIndex(ProductEntry.COLUMN_PRODUCT_QUANTITY);
+            int imageColumIndex = cursor.getColumnIndex(ProductEntry.COLUMN_PRODUCT_IMAGE_URI);
             // Extract out the value from the Cursor for the given column index
             String name = cursor.getString(nameColumnIndex);
-            String breed = cursor.getString(breedColumnIndex);
-            int gender = cursor.getInt(genderColumnIndex);
+            int price = cursor.getInt(priceColumnIndex);
 
+            int qty = cursor.getInt(qtyColumnIndex);
+            String image    =   cursor.getString(imageColumIndex);
 
+            Log.v(LOG_TAG,image);
             // Update the views on the screen with the values from the database
             mNameEditText.setText(name);
-            mBreedEditText.setText(breed);
-
+            mPriceEditText.setText(price+"");
+            mQuantityEditText.setText(qty+"");
+            mImageView.setImageURI(Uri.parse(image));
 
         }
     }
@@ -378,9 +433,11 @@ public class EditorActivity extends AppCompatActivity implements
     public void onLoaderReset(Loader<Cursor> loader) {
         // If the loader is invalidated, clear out all the data from the input fields.
         mNameEditText.setText("");
-        mBreedEditText.setText("");
-        mWeightEditText.setText("");
-        mGenderSpinner.setSelection(0); // Select "Unknown" gender
+        mPriceEditText.setText("");
+        mQuantityEditText.setText("");
+        Bitmap bm = BitmapFactory.decodeResource(
+                getResources(), ic_add_pet);
+        mImageView.setImageBitmap(bm);
     }
 
     /**
@@ -423,7 +480,7 @@ public class EditorActivity extends AppCompatActivity implements
         builder.setPositiveButton(R.string.delete, new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int id) {
                 // User clicked the "Delete" button, so delete the pet.
-                deletePet();
+                deleteProduct();
             }
         });
         builder.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
@@ -444,13 +501,13 @@ public class EditorActivity extends AppCompatActivity implements
     /**
      * Perform the deletion of the pet in the database.
      */
-    private void deletePet() {
+    private void deleteProduct() {
         // Only perform the delete if this is an existing pet.
-        if (mCurrentPetUri != null) {
+        if (mCurrentUri != null) {
             // Call the ContentResolver to delete the pet at the given content URI.
-            // Pass in null for the selection and selection args because the mCurrentPetUri
+            // Pass in null for the selection and selection args because the mCurrentUri
             // content URI already identifies the pet that we want.
-            int rowsDeleted = getContentResolver().delete(mCurrentPetUri, null, null);
+            int rowsDeleted = getContentResolver().delete(mCurrentUri, null, null);
 
             // Show a toast message depending on whether or not the delete was successful.
             if (rowsDeleted == 0) {
@@ -467,4 +524,24 @@ public class EditorActivity extends AppCompatActivity implements
         // Close the activity
         finish();
     }
+
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode == RESULT_OK){
+            Uri imageSelected = data.getData();
+            mImageUri = imageSelected;
+            try {
+                Bitmap bitmap = MediaStore.Images.Media.getBitmap(
+                        getContentResolver(),imageSelected );
+                mImageView.setImageBitmap(bitmap);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            mImageView.setImageURI(mImageUri);
+        }
+    }
+
+
 }

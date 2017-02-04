@@ -148,6 +148,10 @@ public class ProductProvider extends ContentProvider {
             throw new IllegalArgumentException("Product requires a name");
         }
 
+        String image = values.getAsString(ProductEntry.COLUMN_PRODUCT_IMAGE_URI);
+        if (image == null) {
+            throw new IllegalArgumentException("Product requires an image");
+        }
         // Check that the price is valid
         Integer price = values.getAsInteger(ProductEntry.COLUMN_PRODUCT_PRICE);
         if (price<0 ) {
@@ -202,7 +206,7 @@ public class ProductProvider extends ContentProvider {
 
     /**
      * Update pets in the database with the given content values. Apply the changes to the rows
-     * specified in the selection and selection arguments (which could be 0 or 1 or more pets).
+     * specified in the selection and selection arguments (which could be 0 or 1 or more products).
      * Return the number of rows that were successfully updated.
      */
     private int updateProduct(Uri uri, ContentValues values, String selection, String[] selectionArgs) {
@@ -214,7 +218,12 @@ public class ProductProvider extends ContentProvider {
                 throw new IllegalArgumentException("Product requires a name");
             }
         }
-
+        if (values.containsKey(ProductEntry.COLUMN_PRODUCT_IMAGE_URI)) {
+            String image = values.getAsString(ProductEntry.COLUMN_PRODUCT_IMAGE_URI);
+            if (image == null) {
+                throw new IllegalArgumentException("Product requires an image");
+            }
+        }
         // If the {@link ProductEntry#COLUMN_PET_GENDER} key is present,
         // check that the gender value is valid.
         if (values.containsKey(ProductEntry.COLUMN_PRODUCT_PRICE)) {
@@ -233,8 +242,6 @@ public class ProductProvider extends ContentProvider {
                 throw new IllegalArgumentException("Pet requires valid quantity");
             }
         }
-
-        // No need to check the breed, any value is valid (including null).
 
         // If there are no values to update, then don't try to update the database
         if (values.size() == 0) {

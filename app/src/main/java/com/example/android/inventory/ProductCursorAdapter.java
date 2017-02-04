@@ -15,23 +15,33 @@
  */
 package com.example.android.inventory;
 
+import android.content.ContentResolver;
+import android.content.ContentUris;
+import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
+import android.net.Uri;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.CursorAdapter;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.example.android.inventory.data.ProductContract.ProductEntry;
 
+import static com.example.android.inventory.R.id.saleButton;
+
 /**
  * {@link ProductCursorAdapter} is an adapter for a list or grid view
  * that uses a {@link Cursor} of pet data as its data source. This adapter knows
- * how to create list items for each row of pet data in the {@link Cursor}.
+ * how to create list items for each row of product data in the {@link Cursor}.
  */
 public class ProductCursorAdapter extends CursorAdapter {
 
+
+    private static final String LOG_TAG = ProductCursorAdapter.class.getSimpleName();
     /**
      * Constructs a new {@link ProductCursorAdapter}.
      *
@@ -54,7 +64,19 @@ public class ProductCursorAdapter extends CursorAdapter {
     @Override
     public View newView(Context context, Cursor cursor, ViewGroup parent) {
         // Inflate a list item view using the layout specified in list_item.xml
-        return LayoutInflater.from(context).inflate(R.layout.list_item, parent, false);
+        View view   =   LayoutInflater.from(context).inflate(R.layout.list_item, parent, false);
+
+        ViewHolderItem viewHolderItem=new ViewHolderItem();
+        viewHolderItem.nameTextView = (TextView) view.findViewById(R.id.name);
+        viewHolderItem.priceTextView = (TextView) view.findViewById(R.id.price);
+        viewHolderItem.qtyTextView = (TextView) view.findViewById(R.id.quantity);
+        viewHolderItem.imgView=(ImageView)view.findViewById(R.id.product_image);
+
+        viewHolderItem.saleButton = (Button)view.findViewById(R.id.saleButton);
+        viewHolderItem.incrementQuantity=(Button)view.findViewById(R.id.increment_quantity);
+        viewHolderItem.decrementQuantity    =   (Button)view.findViewById(R.id.decrement_quantity);
+        view.setTag(viewHolderItem);
+        return view;
     }
 
     /**
@@ -70,23 +92,89 @@ public class ProductCursorAdapter extends CursorAdapter {
     @Override
     public void bindView(View view, Context context, Cursor cursor) {
         // Find individual views that we want to modify in the list item layout
-        TextView nameTextView = (TextView) view.findViewById(R.id.name);
-        TextView summaryTextView = (TextView) view.findViewById(R.id.price);
-        TextView qtyTextView = (TextView) view.findViewById(R.id.quantity);
-        // Find the columns of pet attributes that we're interested in
+
+        ViewHolderItem holder=(ViewHolderItem) view.getTag();
+
+                // Find the columns of product attributes that we're interested in
         int nameColumnIndex = cursor.getColumnIndex(ProductEntry.COLUMN_PRODUCT_NAME);
-        int breedColumnIndex = cursor.getColumnIndex(ProductEntry.COLUMN_PRODUCT_PRICE);
-
+        int priceColumnIndex = cursor.getColumnIndex(ProductEntry.COLUMN_PRODUCT_PRICE);
         int qtyColumnIndex = cursor.getColumnIndex(ProductEntry.COLUMN_PRODUCT_QUANTITY);
-        // Read the pet attributes from the Cursor for the current pet
-        String petName = cursor.getString(nameColumnIndex);
-        String petBreed = cursor.getString(breedColumnIndex);
+        int imgColumnIndex=cursor.getColumnIndex(ProductEntry.COLUMN_PRODUCT_IMAGE_URI);
+        int productId =   cursor.getColumnIndex(ProductEntry._ID);
+        // Read the pet attributes from the Cursor for the current product
+        String productName = cursor.getString(nameColumnIndex);
+        int prodPrice = cursor.getInt(priceColumnIndex);
+        int qty=cursor.getInt(qtyColumnIndex);
+        String uri=cursor.getString(imgColumnIndex);
 
-        String qty=cursor.getString(qtyColumnIndex);
-
-        qtyTextView.setText(qty);
+        holder.imgView.setImageURI(Uri.parse(uri));
+        holder.qtyTextView.setText(Integer.toString(qty));
         // Update the TextViews with the attributes for the current pet
-        nameTextView.setText(petName);
-        summaryTextView.setText(petBreed);
+        holder.nameTextView.setText(productName);
+        holder.priceTextView.setText(Integer.toString(prodPrice));
+
+        final int quantityUpdate = qty;
+        final long itemId = cursor.getLong(productId);
+        holder.saleButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                int qty = quantityUpdate;
+                if (qty > 0) {
+                    qty--;
+                }
+                ContentValues values = new ContentValues();
+                values.put(ProductEntry.COLUMN_PRODUCT_QUANTITY,
+                        qty);
+                ContentResolver contentResolver = v.getContext().getContentResolver();
+                Uri uri = ContentUris.withAppendedId(
+                        ProductEntry.CONTENT_URI,
+                        itemId);
+                contentResolver.update(uri, values, null, null);
+            }
+        });
+        holder.decrementQuantity.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                int qty = quantityUpdate;
+                if (qty > 0) {
+                    qty--;
+                }
+                ContentValues values = new ContentValues();
+                values.put(ProductEntry.COLUMN_PRODUCT_QUANTITY,
+                        qty);
+                ContentResolver contentResolver = v.getContext().getContentResolver();
+                Uri uri = ContentUris.withAppendedId(
+                        ProductEntry.CONTENT_URI,
+                        itemId);
+                contentResolver.update(uri, values, null, null);
+            }
+        });
+        holder.incrementQuantity.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                int qty = quantityUpdate;
+                qty++;
+                ContentValues values = new ContentValues();
+                values.put(ProductEntry.COLUMN_PRODUCT_QUANTITY,
+                        qty);
+                ContentResolver contentResolver = v.getContext().getContentResolver();
+                Uri uri = ContentUris.withAppendedId(
+                        ProductEntry.CONTENT_URI,
+                        itemId);
+                contentResolver.update(uri, values, null, null);
+            }
+        });
     }
+
+
+    static class ViewHolderItem{
+        TextView nameTextView;
+        TextView priceTextView;
+        TextView qtyTextView;
+        ImageView imgView;
+        Button saleButton;
+        Button incrementQuantity;
+        Button decrementQuantity;
+    }
+
 }
